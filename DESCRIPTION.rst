@@ -1,0 +1,2 @@
+RUSMARC manipulation library
+=======================
