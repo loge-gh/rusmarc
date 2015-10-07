@@ -130,11 +130,13 @@ class Rusmarc(object):
         data = []
         start = 0
         for fno, fval in self.fields.iteritems():
-            packed_fld = self.__pack_field(fno, fval).encode(encoding)
-            l = len(packed_fld)
-            dic.append(b"%03d%04d%05d" % (fno, l, start))
-            data.append(packed_fld)
-            start += l
+            packed_flds = self.__pack_field(fno, fval)
+            for p in packed_flds:
+                p = p.encode(encoding)
+                l = len(p)
+                dic.append(b"%03d%04d%05d" % (fno, l, start))
+                data.append(p)
+                start += l
         dic.append(self.bIS2)
         data.append(self.bIS1)
         dic = b"".join(dic)
@@ -160,21 +162,22 @@ class Rusmarc(object):
             else:
                 val = f + IS2
             val_list.append(val)
-        return "".join(val_list)
+        return val_list
 
     def __pack_subfields(self, sf_dic, add_is=True):
         IS3 = self.IS3
         if not add_is:
             IS3 = '$'
         res = []
-        for sfn, sfv in sf_dic.iteritems():
+        for sfn in sorted(sf_dic.keys()):
             if sfn == '1':
-                for embf_no, embf_val in sfv.iteritems():
-                    res.append("".join(
-                        (IS3, sfn, str(embf_no),
-                         self.__pack_field(embf_no, embf_val, add_is))))
+                for embf_no in sorted(sf_dic['1'].keys()):
+                    packed_flds = self.__pack_field(
+                        embf_no, sf_dic['1'][embf_no], add_is)
+                    for p in packed_flds:
+                        res.append("".join((IS3, sfn, str(embf_no), p)))
                 continue
-            for item in sfv:
+            for item in sf_dic[sfn]:
                 res.append("".join((IS3, sfn, item)))
         return u"".join(res)
 
@@ -188,7 +191,8 @@ class Rusmarc(object):
     def serialize_marc_txt(self, encoding='utf-8'):
         res = "marker: " + self.serialize(encoding)[:24] + '\n'
         for fno in sorted(self.fields.keys()):
-            packed_fld = self.__pack_field(
+            packed_flds = self.__pack_field(
                 fno, self.fields[fno], add_is=False)
-            res = "".join((res, "%03d: " % fno, packed_fld, "\n"))
+            for p in packed_flds:
+                res = "".join((res, "%03d: " % fno, p, "\n"))
         return res
