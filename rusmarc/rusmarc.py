@@ -24,18 +24,19 @@ class Rusmarc(object):
             self.deserialize(bytestr, encoding)
 
     def deserialize(self, record_str, encoding='utf-8'):
+        assert isinstance(record_str, str)
         header = record_str[:24]
         try:
             data_start = int(header[12:17])
         except ValueError:
             raise MalformedRecord()
-        self.status = chr(record_str[5])
-        self.type = chr(record_str[6])
-        self.bib_level = chr(record_str[7])
-        self.hier_level = chr(record_str[8])
-        self.control = chr(record_str[9])
-        self.coding_level = chr(record_str[17])
-        self.isbd = chr(record_str[18])
+        self.status = record_str[5]
+        self.type = record_str[6]
+        self.bib_level = record_str[7]
+        self.hier_level = record_str[8]
+        self.control = record_str[9]
+        self.coding_level = record_str[17]
+        self.isbd = record_str[18]
         dictionary = record_str[24:data_start]
         data = record_str[data_start:]
         self.__validate(header, dictionary, data)
