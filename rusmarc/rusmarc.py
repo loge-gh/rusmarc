@@ -1,52 +1,56 @@
-IS3 = '\x1F'  # Begin of subfield
-IS2 = '\x1E'  # End of field
-IS1 = '\x1D'  # End of record
-
-
+from __future__ import unicode_literals
 class MalformedRecord(Exception):
     pass
 
 
 class Rusmarc(object):
+    IS3 = '\x1F'  # Begin of subfield
+    IS2 = '\x1E'  # End of field
+    IS1 = '\x1D'  # End of record
+    bIS3 = b'\x1F'  # Begin of subfield
+    bIS2 = b'\x1E'  # End of field
+    bIS1 = b'\x1D'  # End of record
+
     def __init__(self, bytestr=None, encoding='utf-8'):
         self.fields = {}
-        self.status = 'n'       # default = new record
-        self.type = 'a'         # default = text (excl. manuscripts)
-        self.bib_level = 'm'    # default = monograph
-        self.hier_level = '#'   # default = not defined
-        self.control = ' '      # default = not defined
-        self.coding_level = '1' # default = sublevel 1
-        self.isbd = ' '         # default = record conforms ISBD rules
+        self.status = b'n'       # default = new record
+        self.type = b'a'         # default = text (excl. manuscripts)
+        self.bib_level = b'm'    # default = monograph
+        self.hier_level = b'#'   # default = not defined
+        self.control = b' '      # default = not defined
+        self.coding_level = b'1' # default = sublevel 1
+        self.isbd = b' '         # default = record conforms ISBD rules
         if bytestr:
-            self.deserialize(bytestr)
+            self.deserialize(bytestr, encoding)
 
-    def deserialize(self, bytestr, encoding='utf-8'):
-        header = bytestr[:24]
+    def deserialize(self, record_str, encoding='utf-8'):
+        header = record_str[:24]
         try:
             data_start = int(header[12:17])
         except ValueError:
             raise MalformedRecord()
-        self.status = bytestr[5]
-        self.type = bytestr[6]
-        self.bib_level = bytestr[7]
-        self.hier_level = bytestr[8]
-        self.control = bytestr[9]
-        self.coding_level = bytestr[17]
-        self.isbd = bytestr[18]
-        dictionary = bytestr[24:data_start]
-        data = bytestr[data_start:]
+        self.status = chr(record_str[5])
+        self.type = chr(record_str[6])
+        self.bib_level = chr(record_str[7])
+        self.hier_level = chr(record_str[8])
+        self.control = chr(record_str[9])
+        self.coding_level = chr(record_str[17])
+        self.isbd = chr(record_str[18])
+        dictionary = record_str[24:data_start]
+        data = record_str[data_start:]
         self.__validate(header, dictionary, data)
         self.__get_raw_fields(dictionary, data, encoding)
         self.__parse_raw_fields()
 
-    @staticmethod
-    def __validate(header, dictionary, data):
+    @classmethod
+    def __validate(cls, header, dictionary, data, encoding='utf-8'):
         try:
             int(header[:5])
         except ValueError:
             raise MalformedRecord()
-        if header[20:] != '450 ' or header[10:12] != '22' \
-                or data[-1:] != IS1 or dictionary[-1:] != IS2:
+        if header[20:] != b'450 ' or header[10:12] != b'22' \
+                or data[-1:] != cls.bIS1 \
+                or dictionary[-1:] != cls.bIS2:
             raise MalformedRecord()
 
     def __get_raw_fields(self, dictionary, data, encoding):
@@ -54,9 +58,9 @@ class Rusmarc(object):
         dl = len(dictionary)
         while i < dl - 1:
             try:
-                fno = int(dictionary[i:i+3])
-                flen = int(dictionary[i+4:i+7])
-                fstart = int(dictionary[i+8:i+12])
+                fno = int(str(dictionary[i:i+3]))
+                flen = int(str(dictionary[i+4:i+7]))
+                fstart = int(str(dictionary[i+8:i+12]))
                 fval = data[fstart:fstart+flen]
                 self.add_field(fno, fval.decode(encoding))
                 i += 12
@@ -67,24 +71,30 @@ class Rusmarc(object):
         for fno, fval_list in self.fields.iteritems():
             parsed_val_lst = []
             for fval in fval_list:
-                if fval[-1:] != IS2:
+                if fval[-1:] != self.IS2:
                     raise MalformedRecord()
                 parsed_val_lst.append(self.__parse_raw_field(fno, fval[:-1]))
             self.fields[fno] = parsed_val_lst
 
     def __parse_raw_field(self, fno, fval):
         if fno >= 10:
-            val = {'i1': fval[0], 'i2': fval[1], 'sf': self.__parse_raw_subfields(fval[2:])}
+            val = {
+                'i1': fval[0],
+                'i2': fval[1],
+                'sf': self.__parse_raw_subfields(fval[2:])
+            }
         else:
             val = fval
         return val
 
     def __parse_raw_subfields(self, sfval):
+        if sfval == '':
+            return {}
         if sfval[1] == '1':
             sfields = self.__parse_emb_fields(sfval)
         else:
             sfields = {}
-            sfield_list = sfval.split(IS3)[1:]
+            sfield_list = sfval.split(self.IS3)[1:]
             for sf in sfield_list:
                 sfname = sf[0]
                 sfval = sf[1:]
@@ -95,18 +105,18 @@ class Rusmarc(object):
         return sfields
 
     def __parse_emb_fields(self, fval):
-        field_list = fval.split(IS3 + '1')[1:]
-        val = {1: {}}
+        field_list = fval.split(self.IS3 + '1')[1:]
+        val = {'1': {}}
         for field in field_list:
             try:
                 fno = int(field[0:3])
             except ValueError:
                 raise MalformedRecord()
             fval = self.__parse_raw_field(fno, field[3:])
-            if fno in val[1]:
-                val[1][fno].append(fval)
+            if fno in val['1']:
+                val['1'][fno].append(fval)
             else:
-                val[1][fno] = [fval]
+                val['1'][fno] = [fval]
         return val
 
     def add_field(self, fno, fval):
@@ -119,43 +129,66 @@ class Rusmarc(object):
         dic = []
         data = []
         start = 0
-        for fno, fval in self.fields:
+        for fno, fval in self.fields.iteritems():
             packed_fld = self.__pack_field(fno, fval).encode(encoding)
             l = len(packed_fld)
-            dic.append("%03d%04d%05d" % (fno, l, start))
+            dic.append(b"%03d%04d%05d" % (fno, l, start))
             data.append(packed_fld)
             start += l
-        dic.append(IS2)
-        data.append(IS1)
-        dic = "".join(dic)
-        data = "".join(data)
-        header = "".join(("%05d" % 24 + len(dic) + len(data),
-                          self.status, self.type, self.bib_level, self.hier_level,
-                          self.control, '22', "%05d" % 24 + len(dic),
-                          self.coding_level, self.isbd, ' 450 '))
-        return "".join(header, dic, data)
+        dic.append(self.bIS2)
+        data.append(self.bIS1)
+        dic = b"".join(dic)
+        data = b"".join(data)
+        header = b"".join(
+            (b"%05d" % (24 + len(dic) + len(data)),
+            self.status, self.type, self.bib_level, self.hier_level,
+            self.control, b'22', b"%05d" % (24 + len(dic)),
+            self.coding_level, self.isbd, b' 450 '))
+        return b"".join((header, dic, data))
 
-    def __pack_field(self, fno, fval):
+    def __pack_field(self, fno, fval, add_is=True):
+        IS2 = self.IS2
+        if not add_is:
+            IS2 = ''
         val_list = []
         for f in fval:
-            if fno >= 100:
-                val = "".join((f['i1'], f['i2'], self.__pack_subfields(f['sf']), IS2))
+            if fno >= 10:
+                val = "".join((
+                    f['i1'], f['i2'],
+                    self.__pack_subfields(f['sf'], add_is),
+                    IS2))
             else:
                 val = f + IS2
             val_list.append(val)
         return "".join(val_list)
 
-    def __pack_subfields(self, sf_dic):
+    def __pack_subfields(self, sf_dic, add_is=True):
+        IS3 = self.IS3
+        if not add_is:
+            IS3 = '$'
         res = []
-        for sfn, sfv in sorted(sf_dic):
+        for sfn, sfv in sf_dic.iteritems():
             if sfn == '1':
-                res.append(self.__pack_emb_field(sfv))
+                for embf_no, embf_val in sfv.iteritems():
+                    res.append("".join(
+                        (IS3, sfn, str(embf_no),
+                         self.__pack_field(embf_no, embf_val, add_is))))
                 continue
             for item in sfv:
                 res.append("".join((IS3, sfn, item)))
-        return "".join(res)
+        return u"".join(res)
 
-    def __pack_emb_field(self, ef_dic):
-        raise NotImplementedError()
+    def __pack_emb_fields(self, ef_dic, add_is=True):
+        res = ""
+        for fno in sorted(ef_dic.keys()):
+            res = "".join((res, str(fno),
+                           self.__pack_field(fno, ef_dic[fno], add_is)))
+        return res
 
-
+    def serialize_marc_txt(self, encoding='utf-8'):
+        res = "marker: " + self.serialize(encoding)[:24] + '\n'
+        for fno in sorted(self.fields.keys()):
+            packed_fld = self.__pack_field(
+                fno, self.fields[fno], add_is=False)
+            res = "".join((res, "%03d: " % fno, packed_fld, "\n"))
+        return res
