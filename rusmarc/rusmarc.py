@@ -125,7 +125,7 @@ class Rusmarc(object):
         data = []
         start = 0
         for fno in sorted(self.fields.keys()):
-            packed_flds = self.__pack_field(fno, self.fields[fno], 'prim')
+            packed_flds = self.__pack_field(fno, self.fields[fno], 'marc')
             for p in packed_flds:
                 p = p.encode(encoding)
                 l = len(p)
@@ -146,8 +146,6 @@ class Rusmarc(object):
     def __pack_field(self, fno, fval, delimiter_type):
         delim = self.IS2
         if delimiter_type == 'txt':
-            delim = '$'
-        elif delimiter_type == 'emb':
             delim = ''
         val_list = []
         if fno >= 10:
@@ -163,6 +161,19 @@ class Rusmarc(object):
                 val_list.append(val)
         return val_list
 
+    def __pack_emb_field(self, fno, fval, delimiter_type):
+        val_list = []
+        if fno >= 10:
+            for f in fval:
+                val = "".join((
+                    f['i1'], f['i2'],
+                    self.__pack_subfields(f['sf'], delimiter_type)))
+                val_list.append(val)
+        else:
+            for f in fval:
+                val_list.append(f)
+        return val_list
+
     def __pack_subfields(self, sf_arr, delimiter_type):
         """
         :param sf_arr: array
@@ -176,10 +187,11 @@ class Rusmarc(object):
         for sfn, sfv in sf_arr:
             if sfn == '1':
                 for embf_no in sorted(sfv.keys()):
-                    packed_flds = self.__pack_field(
-                        embf_no, sfv[embf_no], 'emb')
+                    packed_flds = self.__pack_emb_field(
+                        embf_no, sfv[embf_no], delimiter_type)
                     for p in packed_flds:
-                        res.append("".join((sf_prefix, sfn, str(embf_no), p)))
+                        res.append(
+                            "".join((sf_prefix, sfn, "%03d" % embf_no, p)))
             else:
                 res.append("".join((sf_prefix, sfn, sfv)))
         return "".join(res)
@@ -188,7 +200,7 @@ class Rusmarc(object):
         res = "marker: " + self.serialize(encoding)[:24] + '\n'
         for fno in sorted(self.fields.keys()):
             packed_flds = self.__pack_field(
-                fno, self.fields[fno], delimiter_type=False)
+                fno, self.fields[fno], "txt")
             for p in packed_flds:
                 res = "".join((res, "%03d: " % fno, p, "\n"))
         return res

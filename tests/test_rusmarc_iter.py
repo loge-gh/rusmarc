@@ -1,27 +1,38 @@
 import os
 import io
-import pytest
-from rusmarc import RusmarcFileIterator
+
+from rusmarc import RusmarcFileIterator, MarcFileIterator, Rusmarc
 
 
 def test_iter():
+    with RusmarcFileIterator(
+            os.path.join(os.path.dirname(__file__), "data/TEST1.ISO"),
+            encoding='cp1251'
+    ) as iterator:
+        i = 0
+        for _ in iterator:
+            i += 1
+        assert i == 81
+
     recs_test = {}
     recs_serialized = {}
-    rec = RusmarcFileIterator(
-        os.path.join(os.path.dirname(__file__), "data/TEST1.ISO"),
-        encoding='cp1251'
-    )
-    i = 0
-    for r in rec:
-        i += 1
-        recs_test[r.fields[1][0]] = r
-    assert i == 81
+    with MarcFileIterator(
+            os.path.join(os.path.dirname(__file__), "data/TEST1.ISO")
+    ) as iterator, open(os.path.join(os.path.dirname(__file__),
+                                     "data/tmp.iso"), "wb") as tmp:
+        i = 0
+        for mrc in iterator:
+            i += 1
+            r = Rusmarc(mrc, encoding='cp1251')
+            tmp.write(r.serialize(encoding='cp1251'))
+            assert mrc == r.serialize(encoding='cp1251')
+            recs_test[r.fields[1][0]] = r
+        assert i == 81
     with io.open(os.path.join(os.path.dirname(__file__), "data/TEST1.txt"),
                  encoding='utf-8') as result:
         rec = ''
         key = None
         for l in result.readlines():
-            rec += l
             if l.startswith("001: "):
                 key = l[5:-1]
             if l.strip() == '':
@@ -29,8 +40,13 @@ def test_iter():
                 recs_serialized[key] = rec
                 rec = ''
                 key = None
+            else:
+                rec += l
     for k, r in recs_serialized.iteritems():
         print recs_test[k].serialize_marc_txt()
         print r
         assert r == recs_test[k].serialize_marc_txt(encoding="cp1251")
 
+
+if __name__ == "__main__":
+    test_iter()
