@@ -166,28 +166,22 @@ class Rusmarc(object):
         return val_list
 
     def __pack_subfields(self, sf_dic, add_is=True):
-        IS3 = self.IS3
+        sf_prefix = self.IS3
         if not add_is:
-            IS3 = '$'
+            sf_prefix = '$'
         res = []
         for sfn in sorted(sf_dic.keys()):
             if sfn == '1':
+                ef_prefix = '' if add_is else '$'
                 for embf_no in sorted(sf_dic['1'].keys()):
                     packed_flds = self.__pack_field(
                         embf_no, sf_dic['1'][embf_no], add_is)
                     for p in packed_flds:
-                        res.append("".join((IS3, sfn, str(embf_no), p)))
+                        res.append("".join((ef_prefix, sfn, str(embf_no), p)))
                 continue
             for item in sf_dic[sfn]:
-                res.append("".join((IS3, sfn, item)))
+                res.append("".join((sf_prefix, sfn, item)))
         return "".join(res)
-
-    def __pack_emb_fields(self, ef_dic, add_is=True):
-        res = ""
-        for fno in sorted(ef_dic.keys()):
-            res = "".join((res, str(fno),
-                           self.__pack_field(fno, ef_dic[fno], add_is)))
-        return res
 
     def serialize_marc_txt(self, encoding='utf-8'):
         res = "marker: " + self.serialize(encoding)[:24] + '\n'
