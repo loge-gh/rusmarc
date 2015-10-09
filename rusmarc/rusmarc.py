@@ -60,8 +60,8 @@ class Rusmarc(object):
         while i < dl - 1:
             try:
                 fno = int(str(dictionary[i:i+3]))
-                flen = int(str(dictionary[i+4:i+7]))
-                fstart = int(str(dictionary[i+8:i+12]))
+                flen = int(str(dictionary[i+3:i+7]))
+                fstart = int(str(dictionary[i+7:i+12]))
                 fval = data[fstart:fstart+flen]
                 self.add_field(fno, fval.decode(encoding))
                 i += 12
@@ -130,8 +130,8 @@ class Rusmarc(object):
         dic = []
         data = []
         start = 0
-        for fno, fval in self.fields.iteritems():
-            packed_flds = self.__pack_field(fno, fval)
+        for fno in sorted(self.fields.keys()):
+            packed_flds = self.__pack_field(fno, self.fields[fno])
             for p in packed_flds:
                 p = p.encode(encoding)
                 l = len(p)
@@ -152,7 +152,7 @@ class Rusmarc(object):
     def __pack_field(self, fno, fval, add_is=True):
         IS2 = self.IS2
         if not add_is:
-            IS2 = ''
+            IS2 = ""
         val_list = []
         for f in fval:
             if fno >= 10:
@@ -180,7 +180,7 @@ class Rusmarc(object):
                 continue
             for item in sf_dic[sfn]:
                 res.append("".join((IS3, sfn, item)))
-        return u"".join(res)
+        return "".join(res)
 
     def __pack_emb_fields(self, ef_dic, add_is=True):
         res = ""
