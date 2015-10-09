@@ -94,30 +94,24 @@ class Rusmarc(object):
         if sfval[1] == '1':
             sfields = self.__parse_emb_fields(sfval)
         else:
-            sfields = {}
+            sfields = []
             sfield_list = sfval.split(self.IS3)[1:]
             for sf in sfield_list:
                 sfname = sf[0]
                 sfval = sf[1:]
-                if sfname in sfields:
-                    sfields[sfname].append(sfval)
-                else:
-                    sfields[sfname] = [sfval]
+                sfields.append((sfname, sfval))
         return sfields
 
     def __parse_emb_fields(self, fval):
         field_list = fval.split(self.IS3 + '1')[1:]
-        val = {'1': {}}
+        val = []
         for field in field_list:
             try:
                 fno = int(field[0:3])
             except ValueError:
                 raise MalformedRecord()
             fval = self.__parse_raw_field(fno, field[3:])
-            if fno in val['1']:
-                val['1'][fno].append(fval)
-            else:
-                val['1'][fno] = [fval]
+            val.append(('1', {fno: [fval]}))
         return val
 
     def add_field(self, fno, fval):
@@ -131,7 +125,7 @@ class Rusmarc(object):
         data = []
         start = 0
         for fno in sorted(self.fields.keys()):
-            packed_flds = self.__pack_field(fno, self.fields[fno])
+            packed_flds = self.__pack_field(fno, self.fields[fno], 'prim')
             for p in packed_flds:
                 p = p.encode(encoding)
                 l = len(p)
@@ -149,45 +143,52 @@ class Rusmarc(object):
             self.coding_level, self.isbd, b' 450 '))
         return b"".join((header, dic, data))
 
-    def __pack_field(self, fno, fval, add_is=True):
-        IS2 = self.IS2
-        if not add_is:
-            IS2 = ""
+    def __pack_field(self, fno, fval, delimiter_type):
+        delim = self.IS2
+        if delimiter_type == 'txt':
+            delim = '$'
+        elif delimiter_type == 'emb':
+            delim = ''
         val_list = []
-        for f in fval:
-            if fno >= 10:
+        if fno >= 10:
+            for f in fval:
                 val = "".join((
                     f['i1'], f['i2'],
-                    self.__pack_subfields(f['sf'], add_is),
-                    IS2))
-            else:
-                val = f + IS2
-            val_list.append(val)
+                    self.__pack_subfields(f['sf'], delimiter_type),
+                    delim))
+                val_list.append(val)
+        else:
+            for f in fval:
+                val = f + delim
+                val_list.append(val)
         return val_list
 
-    def __pack_subfields(self, sf_dic, add_is=True):
+    def __pack_subfields(self, sf_arr, delimiter_type):
+        """
+        :param sf_arr: array
+        :param delimiter_type: 'prim', 'txt'
+        :return: array
+        """
         sf_prefix = self.IS3
-        if not add_is:
+        if delimiter_type == 'txt':
             sf_prefix = '$'
         res = []
-        for sfn in sorted(sf_dic.keys()):
+        for sfn, sfv in sf_arr:
             if sfn == '1':
-                ef_prefix = '' if add_is else '$'
-                for embf_no in sorted(sf_dic['1'].keys()):
+                for embf_no in sorted(sfv.keys()):
                     packed_flds = self.__pack_field(
-                        embf_no, sf_dic['1'][embf_no], add_is)
+                        embf_no, sfv[embf_no], 'emb')
                     for p in packed_flds:
-                        res.append("".join((ef_prefix, sfn, str(embf_no), p)))
-                continue
-            for item in sf_dic[sfn]:
-                res.append("".join((sf_prefix, sfn, item)))
+                        res.append("".join((sf_prefix, sfn, str(embf_no), p)))
+            else:
+                res.append("".join((sf_prefix, sfn, sfv)))
         return "".join(res)
 
     def serialize_marc_txt(self, encoding='utf-8'):
         res = "marker: " + self.serialize(encoding)[:24] + '\n'
         for fno in sorted(self.fields.keys()):
             packed_flds = self.__pack_field(
-                fno, self.fields[fno], add_is=False)
+                fno, self.fields[fno], delimiter_type=False)
             for p in packed_flds:
                 res = "".join((res, "%03d: " % fno, p, "\n"))
         return res
