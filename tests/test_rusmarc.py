@@ -14,5 +14,16 @@ def test_serialize():
         assert rec_b == rec_t
 
 
+def test_serialize_bad():
+    with open(
+            os.path.join(os.path.dirname(__file__), "data/ur.iso"),
+            "rb"
+    ) as f:
+        rec_b = f.read()
+        rec = Rusmarc(rec_b, encoding='utf-8')
+        rec_t = rec.serialize(encoding='utf-8')
+        assert rec_b != rec_t        
+
+
 if __name__ == "__main__":
     test_serialize()
