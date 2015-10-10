@@ -42,9 +42,7 @@ def test_iter():
                 key = None
             else:
                 rec += l
-    for k, r in recs_serialized.iteritems():
-        print recs_test[k].serialize_marc_txt()
-        print r
+    for k, r in recs_serialized.iteritems():                
         assert r == recs_test[k].serialize_marc_txt(encoding="cp1251")
 
 
