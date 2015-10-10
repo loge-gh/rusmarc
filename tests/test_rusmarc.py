@@ -5,8 +5,8 @@ from rusmarc import Rusmarc
 
 def test_serialize():
     with open(
-        os.path.join(os.path.dirname(__file__), "data/TEST2.ISO"),
-        "rb"
+            os.path.join(os.path.dirname(__file__), "data/TEST2.ISO"),
+            "rb"
     ) as f:
         rec_b = f.read()
         rec = Rusmarc(rec_b, encoding='cp1251')
@@ -22,8 +22,9 @@ def test_serialize_bad():
         rec_b = f.read()
         rec = Rusmarc(rec_b, encoding='utf-8')
         rec_t = rec.serialize(encoding='utf-8')
-        assert rec_b != rec_t        
+        assert rec_b != rec_t
 
 
 if __name__ == "__main__":
     test_serialize()
+    test_serialize_bad()
