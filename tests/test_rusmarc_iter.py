@@ -18,13 +18,11 @@ def test_iter():
     recs_serialized = {}
     with MarcFileIterator(
             os.path.join(os.path.dirname(__file__), "data/TEST1.ISO")
-    ) as iterator, open(os.path.join(os.path.dirname(__file__),
-                                     "data/tmp.iso"), "wb") as tmp:
+    ) as iterator:
         i = 0
         for mrc in iterator:
             i += 1
-            r = Rusmarc(mrc, encoding='cp1251')
-            tmp.write(r.serialize(encoding='cp1251'))
+            r = Rusmarc(mrc, encoding='cp1251')            
             assert mrc == r.serialize(encoding='cp1251')
             recs_test[r.fields[1][0]] = r
         assert i == 81
