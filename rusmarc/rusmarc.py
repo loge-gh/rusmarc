@@ -16,7 +16,7 @@ class Rusmarc(object):
         self.status = b'n'       # default = new record
         self.type = b'a'         # default = text (excl. manuscripts)
         self.bib_level = b'm'    # default = monograph
-        self.hier_level = b'#'   # default = not defined
+        self.hier_level = b' '   # default = not defined
         self.control = b' '      # default = not defined
         self.coding_level = b'1' # default = sublevel 1
         self.isbd = b' '         # default = record conforms ISBD rules
